@@ -136,7 +136,7 @@ class ModelFitter:
 
 	#-----------------------------------------------------------------------------------------
 	# constructing Jacobian matrix with the partial derivatives of the sum of the residual squares 
-	# with respect to each model parameter at each X point, which is a m * (m+1) matrix  
+	# with respect to each model parameter at each X point, which is an n * m matrix  
 	# 
 	def GetJacobianMatrix(self):
 		m = len(self.P)											#number of parameters of the model
