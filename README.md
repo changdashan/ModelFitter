@@ -10,7 +10,8 @@ Description:
 
 			To simplify the usage, a function called curve_fits can be imported and called in the client code:
 			
-Usage:		
+Usage:
+
 			from ModelFitter import ModelFitter, curve_fits
 			
 			def model_antelope_population(x, *p):
