@@ -6,8 +6,7 @@ Description:
 			It applies the Levenburgh-Marquardt method and impose a lambda value to the diagonal elements of the normal equation matrix.
 			It uses Gaussian elemination method to solve the normal equations for the delta parameters.
 			For the next iteration, it uses a line search method called Golden Section Search to determine the gradient descending step size
-			and the parameters. It will repeat (iterate) the process until abs((p[k+1]-p[k])/p[k]) < epsilon (1e-6)
-
+			and the parameters. It will repeat (iterate) the process until abs((p[k+1]-p[k])/p[k]) < epsilon (1e-6). 
 			To simplify the usage, a function called curve_fits can be imported and called in the client code:
 			
 Usage:
