@@ -4,7 +4,7 @@ Description:    A demontration example on usage of the ModelFitter class.
                 Partition curves is an important tool in analysis of coal preparation performance.
                 There have been many mathematical models developed for it. Here I introduced one I have not yet seen it used before:
                 Logistics and its variant function.
-                It also demonstrate how to use weights (1/sigma**2) in curve fitting.
+                It also demonstrates how to use weights (1/sigma**2) in curve fitting.
 
 Author:         Dashan Chang
 Created:        1/16/2026
