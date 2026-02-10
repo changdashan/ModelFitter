@@ -1,4 +1,4 @@
-# Model Fitter
+# Non-Linear Least Square Curve Fitter
 Description: 
 			ModelFitter is a class that can be used to fit a model of the function form f(x, p) to a set of measured data (x, y). 
 			It uses a numerical method to estimate the partial derivatives of the model with respect to the parameters 
