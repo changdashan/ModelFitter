@@ -10,7 +10,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from ModelFitter2 import ModelFitter, curve_fits
+from ModelFitter import ModelFitter, curve_fits
 
 def model_antelope_population(x, *p):
     a = p[0]
