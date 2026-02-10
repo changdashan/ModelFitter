@@ -1,37 +1,54 @@
 """
-File: ModelFitter.py
+	File: ModelFitter.py				
+	Author:		Dashan Chang
+	Date:		01/16/2025
 
-Description: 
-			ModelFitter is a class that can be used to fit a model of the function form f(x, p) to a set of measured data (x, y). 
-			It uses a numerical method to estimate the partial derivatives of the model with respect to the parameters 
-			to build the Jacobian matrix and obtains the normal equation about the delta of the parameters ((The transpose of J) x J). 
-			It applies the Levenburgh-Marquardt method and impose a lambda value to the diagonal elements of the normal equation matrix.
-			It uses Gaussian elemination method to solve the normal equations for the delta parameters.
-			For the next iteration, it uses a line search method called Golden Section Search to determine the gradient descending step size
-			and the parameters. It will repeat (iterate) the process until abs((p[k+1]-p[k])/p[k]) < epsilon (1e-6)
+	Description: 
+		ModelFitter is a Python class designed to fit a model function of the form f(x, p) to a set of measured data points (X, Y).
 
-			To simplify the usage, a function called curve_fits can be imported and called in the client code:
+		The class is implemented from scratch and includes custom routines for:
+
+			* Numerical estimation of partial derivatives of the model with respect to the parameters
+			* Construction of the Jacobian matrix
+			* Formation of the normal equations ((J^T J))
+			* Solution of the normal equations using Gaussian elimination
+
+		ModelFitter employs the Levenberg-Marquardt algorithm to iteratively update the model parameters.
+	    A damping factor (lambda) is applied to the diagonal elements of the normal equation matrix to control the gradient descent step size and improve convergence stability.
+
+		To further refine each iteration step, the class uses a Golden Section Search line-search method to determine an optimal step length along the descent direction.
+
+		The fitting process proceeds iteratively as follows:
+
+			1. Numerically estimate partial derivatives and build the Jacobian matrix.
+			2. Construct the normal equations (J^T J) with Levenberg-Marquardt damping.
+			3. Solve the normal equations using Gaussian elimination to obtain parameter updates.
+			4. Perform a Golden Section Search to determine the optimal step size.
+			5. Update the parameters and repeat until convergence is achieved.
+
+		The iteration stops when the relative parameter change satisfies: ((p[k+1] - p[k]) /  p[k]) < 1e-6 
+		For ease of use, a convenience function called curve_fits is provided
+		and can be imported directly into client code to perform model fitting without interacting with the class internals.
 			
-Usage:		from ModelFitter import ModelFitter, curve_fits
+	Usage:		
+				from ModelFitter import ModelFitter, curve_fits
 			
-			def model_antelope_population(x, *p):
-				a = p[0]
-				k = p[1]
-				f = a * np.exp(k * x)
-				return f
+				def model_antelope_population(x, *p):
+					a = p[0]
+					k = p[1]
+					f = a * np.exp(k * x)
+					return f
 
-			T = np.array([1,2,4,5,8])
-			Y = np.array([3,4,6,11,20])
-			P = np.array([2, 1])
-			model = model_antelope_population
-			popt, pcov = curve_fits(model, T, Y, p0=P)
-			print(popt)
-			print(pcov)
-				
-Author:		Dashan Chang
+				T = np.array([1,2,4,5,8])
+				Y = np.array([3,4,6,11,20])
+				P = np.array([2, 1])
+				model = model_antelope_population
+				popt, pcov = curve_fits(model, T, Y, p0=P)
+				print(popt)
+				print(pcov)
 
-Date:		01/16/2025
 """
+
 #---------------------------------------------------------------------------------------------------
 import numpy as np
 
@@ -40,7 +57,7 @@ class ModelFitter:
 	def __init__(self, X, Y, ModelFunc, P, sigma=None, DerivativeFunc=None, MaxIterations=50, ftol=1e-6, xtol=1e-6):
 		self.X = X
 		self.Y = Y
-		self.Sigma = [1] * len(X) if sigma is None else sigma										# assume sigma is 1 if not provided. inverse of weight, 1/sigma
+		self.Sigma = [1] * len(X) if sigma is None else sigma										# assume sigma is 1 if not provided. weight = 1/sigma**2
 		self.Model = ModelFunc																		# model function will have the format f(x, *p) where x is the independent variable and p is the parameter array
 		self.P = P
 		self.Derivative = self.DerivativeEstimate if DerivativeFunc is None else DerivativeFunc		# user does not need to provide it. We will use numberic method to get the partial derivative
@@ -64,6 +81,7 @@ class ModelFitter:
 	
 
 	#-----------------------------------------------------------------------------------------
+	# one way of estimating the derivative of the objective function with respect to the parameters
 	def DerivativeEstimate(self, x, P):
 		ph = P.copy()
 		m = len(P)
@@ -79,6 +97,7 @@ class ModelFitter:
 		return df
 
 	#-----------------------------------------------------------------------------------------
+	# another way of estimating the derivative of the objective function with respect to the parameters
 	def DerivativeEstimate2(self, x, P):
 		ph = P.copy()
 		m = len(P)
@@ -100,11 +119,11 @@ class ModelFitter:
 		return df
 
 	#---------------------------------------------------------------------------------------------
-	# Calculate the difference of measured and predicted Y values and standard deviation 
+	# Calculate the difference of measured Y and predicted y values and standard deviation 
 	def CalcStandarDeviation(self):	
 		sgma = self.Sigma
-		s = 0;
-		ySD = 0;
+		s = 0
+		ySD = 0
 		n = len(self.X)
 		p = self.P
 		for i in range(n):
@@ -119,28 +138,36 @@ class ModelFitter:
 		return ySD
 
 	#----------------------------------------------------------------------------------------
-	# this is the objective function to be minimized 
-	def SqrtOfSquresSum(self):   #calculate the square root of the sum of the squares of the residual/difference/deviation
-		SumOfSquares = 0
+	# get the square root of the sum of the squares of the residual error
+	# can also be used as the objective function to be minimized
+	def SqrtOfSumOfSqures(self):
+		n = len(self.X)
+		sumOfSquares = self.SumOfSquares()
+		return np.sqrt(sumOfSquares / n)
+
+	#----------------------------------------------------------------------------------------
+	# used as the objective function to be minimized 
+	def SumOfSquares(self):
+		sumOfSquares = 0
 		X = self.X
 		Y = self.Y
 		sgma = self.Sigma
-		P = self.P
+		p = self.P
 		n = len(X)
 		for i in range(n):
-			x = X[i];
-			y = self.Model(x, *P)
+			x = X[i]
+			y = self.Model(x, *p)
 			s = (Y[i] - y) / sgma[i]
-			SumOfSquares += (s ** 2)
-		return np.sqrt(SumOfSquares / n)
+			sumOfSquares += (s ** 2)
+		return sumOfSquares
 
 	#-----------------------------------------------------------------------------------------
 	# constructing Jacobian matrix with the partial derivatives of the sum of the residual squares 
-	# with respect to each model parameter at each X point, which is an n * m matrix  
-	# 
+	# with respect to each model parameter at each X point, which is a m * (m+1) matrix 
+	# it will be used to calculate the variance nd co-variance
 	def GetJacobianMatrix(self):
 		m = len(self.P)											#number of parameters of the model
-		n = len(self.X)											#number of measured x values
+		n = len(self.X)											#number of measured data
 		sgma = self.Sigma
 
 		J = [0] * n			
@@ -172,7 +199,7 @@ class ModelFitter:
 			y = self.Y[i]
 			p = self.P
 			df = [0] * m
-			r[i] = (y - self.Model(x, *p)) / sgma[i]			# residual, or, the difference of the meatured value and the model predicted values at the current parameters
+			r[i] = (y - self.Model(x, *p)) / sgma[i]			# residual of the meatured value and the model predicted values at the current set of parameters
 			df = self.Derivative(x, p)							# df - the partial derivative of the model with respect to each parameter.
 			for j in range(m):
 				J[i][j] = df[j] / sgma[i]
@@ -187,7 +214,7 @@ class ModelFitter:
 			a[i][m] = hf
 
 			for j in range(m):
-				hf = 0;
+				hf = 0
 				for k in range(n):
 					hf += J[k][i] * J[k][j]
 				a[i][j] = hf
@@ -224,7 +251,7 @@ class ModelFitter:
 	# solution: [3, 5, 7, 11]
 	"""
 	
-	def GaussianEliminationMethod(self,a):
+	def GaussianEliminationMethod(self, a):
 		n = len(a)
 		x = [0] * n
 		k = -1
@@ -233,7 +260,7 @@ class ModelFitter:
 		while k < n - 1 and i0 > -1:
 			k += 1
 			i0 = k
-			while np.abs(a[i0][k]) < 0.0001 and i0 < n - 1:
+			while np.abs(a[i0][k]) < 0.000001 and i0 < n - 1:
 				i0 += 1
 
 			if i0 == n - 1  and np.abs(a[i0][k]) < 0.000001:
@@ -259,15 +286,16 @@ class ModelFitter:
 			for j in range(i+1, n):
 				x[i] -= x[j] * a[i][j]
 
-		return x;
-
+		return x
+	
 	#----------------------------------------------------------------------------------------
-	# Golden-Section Search algorithm, one of the line search algorithms to determine 
-	# the next set of parameters so that the objective function is descending the fastest.
+	# Golden-Section Search, to determine the next set of parameters 
+	# so that the objective function is descending the fastest.
 	def GoldenSectionSearch(self):
-		sqrtOfSqrSum = 0;
-		b1 = 0;
-		b2 = 1;
+		func = self.SumOfSquares
+
+		b1 = 0
+		b2 = 1
 		c = 0.5 * (np.sqrt(5) - 1)         #0.618
 		a2 = b1 + (b2 - b1) * c
 		
@@ -281,15 +309,15 @@ class ModelFitter:
 		for i in range(m):
 			p[i] = p0[i] - a2 * dp[i]
 
-		self.P = p;
-		f2 = self.SqrtOfSquresSum()
+		self.P = p
+		f2 = func()
 
 		a1 = b1 + b2 - a2
 		for i in range(m):
 			p[i] = p0[i] + a1 * dp[i]
 
-		self.P = p;
-		f1 = self.SqrtOfSquresSum()
+		self.P = p
+		f1 = func()
 
 		while (np.abs(f2 - f1) / (f2 + f1)) > 0.05:
 			if f1 < f2:
@@ -299,10 +327,8 @@ class ModelFitter:
 				a1 = b1 + b2 - a2
 				for i in range(m):
 					p[i] = p0[i] + a1 * dp[i]
-
 				self.P = p
-				f1 = self.SqrtOfSquresSum()
-				sqrtOfSqrSum = f1
+				f1 = func()
 			else:
 				b1 = a1
 				a1 = a2
@@ -310,19 +336,15 @@ class ModelFitter:
 				a2 = b1 + b2 - a1
 				for i in range(m):
 					p[i] = p0[i] + a2 * dp[i]
-
 				self.P = p
-				f2 = self.SqrtOfSquresSum()
-				sqrtOfSqrSum = f2
+				f2 = func()
 
+		goldenRate = 0.5 * (b1 + b2) 
 		for i in range(m):
-			p[i] = p0[i] + 0.5 * (b1 + b2) * dp[i]						#p[k+1] = p[k] + f * dp   (aka, delta Beta, which is solved by GaussianEleminationMethod), a method called Shift-butting.
+			p[i] = p0[i] + goldenRate * dp[i]						#p[k+1] = p[k] + f * dp   (aka, delta Beta, which is solved by GaussianEleminationMethod), a method called Shift-butting.
 
-		self.P = p
-		sqrtOfSqrSum = self.SqrtOfSquresSum()
+		return p
 
-		return sqrtOfSqrSum
-	
 	#-----------------------------------------------------------------------------------------
 	# Calculate parameter's variances (digonal elements) and covariances at the optimal parameters
 	def CalcParamVariance(self):
@@ -330,7 +352,7 @@ class ModelFitter:
 		JT = J.T
 		JT_Dot_J = JT @ J
 		inv_JT_J = np.linalg.inv(JT_Dot_J)	
-		Q = (self.SqrtOfSquresSum() ** 2) * len(self.X)
+		Q = self.SumOfSquares()
 		N = len(self.X)
 		M = len(self.P)
 		rv = Q/(N-M)
@@ -341,23 +363,15 @@ class ModelFitter:
 	#-----------------------------------------------------------------------------------------
 	# After the class is initialized with the model, X, Y, p0 parameter, call this method to start the iteration.
 	def StartIteration(self):	
-
-		# The square root of the sum of the square of Y - y(x, p).  
-		residual = self.SqrtOfSquresSum()
-		leastResidual = 0
 		epsilon = self.epsilon
-
 		k = 0
-		lamda = 1.0
 		Converged = False
 		MaxIterations = self.MaxIterations
 
 		np.set_printoptions(suppress=True, precision=8)
 
 		while not Converged and k <= MaxIterations:
-			leastResidual = residual
-			k += 1
-			
+			k += 1			
 			self.Iteration = k
 			a = self.BuildNormalEquationMatrix()
 			dp = self.GaussianEliminationMethod(a)					#dp is Delta of the Parameter, the gradient decending step size for each paramter
@@ -375,22 +389,22 @@ class ModelFitter:
 					Converged = False
 
 			if not Converged:
-				residual = self.GoldenSectionSearch()
+				p = self.GoldenSectionSearch()
+				self.P = p
 				self.lamda *= 0.8
-
-		leastResidual = residual
-		self.popt = self.P
-		
-		print("The Least Residual Error (square root): ", leastResidual)
 
 		for i in range(len(p)):
 			print(f"Parameter: {i} value: {p[i]}")
+
+		self.popt = self.P
+		leastSqrResidual = self.SumOfSquares()
+		print("The Least Residual Error (square root): ", leastSqrResidual)
 
 		self.CalcStandarDeviation()
 		self.CalcParamVariance()
 	
 #---------------------------------------------------------------------------------------------------
-# A simplified function to simulate to the curve_fit method of scipy.optimize
+# A simplified function simulating to the curve_fit method of scipy.optimize
 def curve_fits(Model, X, Y, p0=None, sigma=None, Derivative=None, MaxIterations=50, ftol=1e-6, xtol=1e-6, full_output=False):
 	modelFitter = ModelFitter(X, Y, Model, p0, sigma, Derivative, MaxIterations, ftol, xtol)
 	modelFitter.StartIteration()
@@ -402,6 +416,7 @@ def curve_fits(Model, X, Y, p0=None, sigma=None, Derivative=None, MaxIterations=
 		return popt, pcov
 	
 	
+#--------------------------------------------------------------------------------------------------
 # example model function format:
 """	
 def model_antelope_population(x, *p):
