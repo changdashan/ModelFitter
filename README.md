@@ -1,12 +1,13 @@
 # Non-Linear Least Square Curve Fitting From Scratch
-Description: 
+Description:
+
 		ModelFitter is a Python class designed to fit a model function of the form f(x, p) to a set of measured data points (X, Y).
 
 		The class is implemented from scratch and includes custom routines for:
 
 			* Numerical estimation of partial derivatives of the model with respect to the parameters
 			* Construction of the Jacobian matrix
-			* Formation of the normal equations ((J^T J))
+			* Formation of the normal equations ((J^T * W * J))
 			* Solution of the normal equations using Gaussian elimination
 
 		ModelFitter employs the Levenberg-Marquardt algorithm to iteratively update the model parameters.
